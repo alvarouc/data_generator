@@ -33,24 +33,24 @@ class TestRVMethods(unittest.TestCase):
     def test_data_generator_ica(self):
 
         data, labels = synthetic_data()
-        gen = DataGenerator(data, n_components=3)
+        gen = DataGenerator(data, labels, n_components=3)
         # Test if ica decomposition is ok
         ica_data = dot(gen.mixing, gen.sources) + gen.data_mean
         self.assertTrue(allclose(ica_data, data))
 
     def test_data_generator_normal(self):
         data, labels = synthetic_data()
-        gen = DataGenerator(data, n_components=3)
+        gen = DataGenerator(data, labels, n_components=3)
         # Test generator
-        new_data = gen.generate(labels, 5000, method='normal')
-        self.assertEqual(new_data.shape, (10000,50000))
+        new_data = gen.generate(1000, method='normal')
+        self.assertEqual(new_data.shape, (2000,50000))
         
     def test_data_generator_rejective(self):
         data, labels = synthetic_data()
-        gen = DataGenerator(data, n_components=3)
+        gen = DataGenerator(data, labels, n_components=3)
         # Test generator
-        new_data = gen.generate(labels, 5000, method='rejective')
-        self.assertEqual(new_data.shape, (10000,50000))
+        new_data = gen.generate(1000, method='rejective')
+        self.assertEqual(new_data.shape, (2000,50000))
         
 
 if __name__ == '__main__':
