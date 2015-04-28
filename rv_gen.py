@@ -4,7 +4,7 @@ mv_rejective: multivariate rejective sampling from histogram
 '''
 
 from numpy import diff, array
-from numpy.random import uniform
+from numpy.random import uniform, multivariate_normal
 
 
 def mv_rejective(models, n_samples=1e3):
