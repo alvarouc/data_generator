@@ -4,7 +4,7 @@ mv_rejective: multivariate rejective sampling from histogram
 '''
 
 from numpy import diff, array
-from numpy.random import uniform, multivariate_normal
+from numpy.random import uniform
 
 
 def mv_rejective(models, n_samples=1e3):
@@ -38,7 +38,7 @@ def mv_rejective(models, n_samples=1e3):
             # u_s ~ U(0,1)
             u_s = uniform(size=n_samples * mul)
             # Keep accepted samples
-            column = [e for e, u in zip(e_s, u_s)\
+            column = [e for e, u in zip(e_s, u_s)
                       if u <= h_count[(e > edges[1:]).argmin()]]
             new_samples.append(column)
         # Number of accepted multivariate samples
