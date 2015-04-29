@@ -16,7 +16,7 @@ from sklearn.grid_search import GridSearchCV
 #from functools import partial
 import argparse
 
-N_SAMPLES = 500
+N_SAMPLES = 5000
 
 
 def fit_test(clf, train_tuple, test_tuple):
@@ -55,7 +55,8 @@ def classify(data, labels, seed):
     param_grid = dict(gamma=gamma_range, C=c_range)
     cv = StratifiedShuffleSplit(new_labels, n_iter=10, test_size=0.2, 
                                 random_state=seed)
-    clf = GridSearchCV(SVC(), param_grid=param_grid, cv=cv)
+    clf = GridSearchCV(SVC(), param_grid=param_grid, 
+                       cv=cv, n_jobs=5)
     
     # Fit on simulated data
     result_sim = fit_test(clf, (new_data, new_labels),
