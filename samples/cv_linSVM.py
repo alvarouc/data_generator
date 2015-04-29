@@ -76,7 +76,7 @@ def main():
     #results = p.map(fun,range(iterations))
     #results = map(fun,range(iterations))
     results = [classify(data, labels, seed) for seed in range(iterations)]
-    #np.save('/home/aulloa/data/mega/results.npy', np.array(results))
+    np.save('results.npy', np.array(results))
 
     print results
 
