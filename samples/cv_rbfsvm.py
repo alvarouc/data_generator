@@ -1,6 +1,7 @@
 #!/usr/bin/python
 '''
 Sample code for cross validation using the data generator
+- Grid search added
 '''
 from smri_gen import DataGenerator
 import numpy as np
@@ -8,13 +9,14 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.metrics import roc_curve as rc
 from sklearn.metrics import auc
-from sklearn.cross_validation import train_test_split
+from sklearn.cross_validation import train_test_split, StratifiedShuffleSplit
+from sklearn.grid_search import GridSearchCV
 #import progressbar as pb
 #import multiprocessing as mp
 #from functools import partial
 import argparse
 
-N_SAMPLES = 5000
+N_SAMPLES = 500
 
 
 def fit_test(clf, train_tuple, test_tuple):
@@ -31,7 +33,7 @@ def fit_test(clf, train_tuple, test_tuple):
     data_test = scaler.transform(data_test)
 
     clf.fit(data_train, labels_train)
-    fpr, tpr, _ = rc(labels_test, clf.predict_proba(data_test)[:, 1])
+    fpr, tpr, _ = rc(labels_test, clf.predict(data_test)[:, 1])
     return auc(fpr, tpr)
 
 
@@ -48,7 +50,13 @@ def classify(data, labels, seed):
                              labels_train, 15).generate(N_SAMPLES)
     new_labels = [0]*N_SAMPLES + [1]*N_SAMPLES
 
-    clf = SVC(kernel='linear', C=0.05, probability=True)
+    c_range = np.logspace(-2, 10, 13)
+    gamma_range = np.logspace(-9, 3, 13)
+    param_grid = dict(gamma=gamma_range, C=c_range)
+    cv = StratifiedShuffleSplit(new_labels, n_iter=10, test_size=0.2, 
+                                random_state=seed)
+    clf = GridSearchCV(SVC(), param_grid=param_grid, cv=cv)
+    
     # Fit on simulated data
     result_sim = fit_test(clf, (new_data, new_labels),
                           (data_test, labels_test))
@@ -65,10 +73,8 @@ def main(data_path):
     '''
     Demo of cross validation using Linear SVM
     '''
-    #path = '/export/mialab/users/alvaro/data/mega/'
-    path = '/home/aulloa/data/mega/'
-    data = np.load(path + 'dataQC.npy')
-    labels = np.load(path + 'labelQC.npy').ravel()
+    data = np.load(data_path + 'dataQC.npy')
+    labels = np.load(data_path + 'labelQC.npy').ravel()
 
     iterations = 4
 
@@ -83,17 +89,13 @@ def main(data_path):
 
 
 if __name__ == '__main__':
-    main()
-
-
-
-
-
-
-
-
-
-
-
-
-
+    
+    parser = argparse.ArgumentParser(
+        description='Classification demo with RBF-SVM')
+    parser.add_argument('data_path', help='folder path that contains dataQC.npy and labelsQC.npy')
+    args = parser.parse_args()
+    data_path = args.data_path
+    main(data_path)
+    #path = '/export/mialab/users/alvaro/data/mega/'
+    #path = '/home/aulloa/data/mega/'
+    
