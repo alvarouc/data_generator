@@ -21,8 +21,9 @@ class DataGenerator(object):
         # TO DO: use estimation of number of sources from data
         self.labels = labels
         # acconditioning data
-        self.data_mean = np.mean(data, axis=0)
+        self.data_mean = data.mean(axis=0).reshape((1,-1))
         self.data = data - self.data_mean
+        
         # Running ICA
         self.mixing, self.sources\
             = ica1(self.data, n_components, verbose=False)
@@ -37,7 +38,7 @@ class DataGenerator(object):
         Output
          -new_samples
         '''
-
+        self.new_mixings = []
         if method == 'rejective':
             for tag in np.unique(self.labels):
                 model = [np.histogram(column, density=True, bins=20)
@@ -57,6 +58,7 @@ class DataGenerator(object):
         new_data = np.zeros((n_samples*n_groups,
                              self.data.shape[1]))
         for idx, mix in enumerate(self.new_mixings):
+            print self.data_mean.shape
             new_data[idx*n_samples:(idx+1)*n_samples, :]\
                 = np.dot(mix, self.sources) + self.data_mean
 
