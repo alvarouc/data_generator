@@ -7,7 +7,7 @@ from numpy.linalg import norm
 from numpy import (eye,
                    histogram,
                    allclose,
-                   dot,
+                   dot,cov,
                    vstack,
                    corrcoef,
                    abs,sign,
@@ -27,7 +27,52 @@ def synthetic_data():
 
 class TestRVMethods(unittest.TestCase):
 
-    def test_mv_rejective(self):
+    def test_mv_normal(self):
+        # three dimensional input samples
+        old_data, labels = synthetic_data()
+        gen = DataGenerator(old_data, n_components=3,
+                            n_samples=1000, n_batches=10,
+                            method='normal')
+        print('Generating new data ...')
+        new_data = [x for x in gen]
+        print('Done.')
+        # Checking that there is enough samples
+        for i in range(10):
+            self.assertEqual(new_data[i].shape[0],1000)
+        
+        old_model = (gen.parameters['sample_mean'],
+                     gen.parameters['sample_cov'])
+        
+        
+        model = ica1(3)
+        # foreach data batch
+        for i in range(10):
+            new_A, new_S = model.fit(new_data[i])
+            # Reorder components
+            c_SS = corrcoef(new_S, gen.sources)[3:,:3]
+            source_sim = abs(c_SS).max(axis=1)
+            # Check sources are similar
+            self.assertTrue(all(source_sim>0.95))
+            order = abs(c_SS).argmax(axis=1)
+            signs = array([sign(x[order[n]])
+                           for n,x in enumerate(c_SS)])
+            new_S = new_S[order,:] * signs.reshape((-1,1))
+            new_A = new_A[:,order] * signs.reshape((1,-1))
+
+            new_model = (new_A.mean(axis=0),
+                         cov(new_A, rowvar=0))
+            # Check that resulting new mixing has similar mean and cov
+            error = norm(abs(new_model[0] - old_model[0]))/3
+            self.assertTrue(error < 0.01)
+
+            error = norm(abs(new_model[1] - old_model[1]).ravel())/9
+            print('Cov error {}'.format(error))
+            self.assertTrue(error < 0.01)
+            
+
+        self.fail('finish the test')
+    
+    def test_mv_rejection(self):
         # three dimensional input samples
         old_data, labels = synthetic_data()
         gen = DataGenerator(old_data, n_components=3,

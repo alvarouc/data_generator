@@ -5,7 +5,20 @@ from future.utils import implements_iterator
 from .rv_gen import mv_rejective
 from ica import ica1
 import numpy as np
-from numpy.random import multivariate_normal as mn
+from scipy.stats import multivariate_normal as mn
+import rpy2
+import rpy2.robjects as robjects
+from rpy2.robjects.packages import importr
+
+def empirical_mn(mean, covar, size):
+    MASS = importr('MASS')
+    sample_mean = robjects.FloatVector(mean)
+    temp = robjects.FloatVector(covar.ravel())
+    sample_cov = robjects.r['matrix'](temp, nrow=covar.shape[0])
+    new_mixing = np.array(MASS.mvrnorm(n=size, mu=sample_mean,
+                                       Sigma=sample_cov,
+                                       empirical=True))
+    return new_mixing
 
 
 @implements_iterator
@@ -42,10 +55,10 @@ class DataGeneratorByGroup(object):
             raise StopIteration
         
         if self.method == 'normal':
-            new_mixing0 = mn(self.parameters['sample_mean'][0],
+            new_mixing0 = empirical_mn(self.parameters['sample_mean'][0],
                              self.parameters['sample_cov'][0],
                              self.parameters['n_samples'])
-            new_mixing1 = mn(self.parameters['sample_mean'][1],
+            new_mixing1 = empirical_mn(self.parameters['sample_mean'][1],
                              self.parameters['sample_cov'][1],
                              self.parameters['n_samples'])
 
@@ -77,9 +90,6 @@ class DataGenerator(object):
         '''
         self.method = method
         self.n_batches = n_batches
-        # Set number of components to 15,
-        # TO DO: use estimation of number of sources from data
-        # pre-processing data
         #self.data_mean = data.mean(axis=1).reshape((-1,1))
         
         # Running ICA
@@ -104,9 +114,9 @@ class DataGenerator(object):
         if self.batch > self.n_batches:
             raise StopIteration
         if self.method == 'normal':
-            new_mixing = mn(self.parameters['sample_mean'],
-                            self.parameters['sample_cov'],
-                            self.parameters['n_samples'])
+            new_mixing = empirical_mn(self.parameters['sample_mean'],
+                                      self.parameters['sample_cov'],
+                                      self.parameters['n_samples'])
 
         if self.method == 'rejective':
             new_mixing = mv_rejective(self.parameters['sample_hist'],
