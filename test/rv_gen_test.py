@@ -1,7 +1,8 @@
 import unittest
-from data_generator import mv_rejective, DataGenerator
+from data_generator import (DataGenerator,
+                            DataGeneratorByGroup,
+                            empirical_mn)
 from ica import ica1
-from numpy.random import multivariate_normal as mn
 from numpy.random import logistic, uniform
 from numpy.linalg import norm
 from numpy import (eye,
@@ -15,8 +16,8 @@ from numpy import (eye,
 import theano.sandbox.cuda
 theano.sandbox.cuda.use('cpu')
 def synthetic_data():
-    mixing_0 = mn([1,1,1], cov=eye(3), size = 500)
-    mixing_1 = mn([-1,-1,-1], cov=eye(3), size = 500)
+    mixing_0 = empirical_mn([1,1,1], eye(3), size = 500)
+    mixing_1 = empirical_mn([-1,-1,-1], eye(3), size = 500)
     sources = logistic(0,1, size=(3,50000))
     
     data = dot(vstack((mixing_0,mixing_1)), sources) +\
@@ -25,7 +26,26 @@ def synthetic_data():
 
     return (data,labels)
 
-class TestRVMethods(unittest.TestCase):
+class TestSyntheticDataByGroup(unittest.TestCase):
+
+    def setUp(self):
+        self.data, self.labels = synthetic_data()
+
+    def test_new_data(self):
+        gen = DataGeneratorByGroup(self.data,
+                                   self.labels,
+                                   n_components=3,
+                                   n_samples=500,
+                                   n_batches=10,
+                                   method='normal')
+
+        for new_data in gen:
+            new_labels = [0]*500 + [1]*500
+            print(new_data.shape)
+            
+        
+@unittest.skip("demonstrating skipping")
+class TestGeneratorMethods(unittest.TestCase):
 
     def test_mv_normal(self):
         # three dimensional input samples
@@ -33,9 +53,7 @@ class TestRVMethods(unittest.TestCase):
         gen = DataGenerator(old_data, n_components=3,
                             n_samples=1000, n_batches=10,
                             method='normal')
-        print('Generating new data ...')
         new_data = [x for x in gen]
-        print('Done.')
         # Checking that there is enough samples
         for i in range(10):
             self.assertEqual(new_data[i].shape[0],1000)
@@ -66,11 +84,8 @@ class TestRVMethods(unittest.TestCase):
             self.assertTrue(error < 0.01)
 
             error = norm(abs(new_model[1] - old_model[1]).ravel())/9
-            print('Cov error {}'.format(error))
             self.assertTrue(error < 0.01)
-            
 
-        self.fail('finish the test')
     
     def test_mv_rejection(self):
         # three dimensional input samples
@@ -78,9 +93,7 @@ class TestRVMethods(unittest.TestCase):
         gen = DataGenerator(old_data, n_components=3,
                             n_samples=1000, n_batches=10,
                             method='rejective')
-        print('Generating new data')
         new_data = [x for x in gen]
-        print('Done.')
 
         for i in range(10):
             self.assertEqual(new_data[i].shape[0],1000)
@@ -111,32 +124,7 @@ class TestRVMethods(unittest.TestCase):
                                 'simmilarity {} is too low'.format(sim))
                 
 
-#class TestGenerator(unittest.TestCase):       
-#    def test_data_generator_ica(self):
-#
-#        data, labels = synthetic_data()
-#        gen = DataGenerator(data, labels, n_components=3)
-#        # Test if ica decomposition is ok
-#        ica_data = dot(gen.mixing, gen.sources) + gen.data_mean
-#        self.assertTrue(allclose(ica_data, data))
-#
-#    def test_data_generator_normal(self):
-#        data, labels = synthetic_data()
-#        gen = DataGenerator(data, labels, n_components=3)
-#        # Test generator
-#        new_data = gen.generate(1000, method='normal')
-#        self.assertEqual(new_data.shape, (2000,50000))
-#        
-#    def test_data_generator_rejective(self):
-#        data, labels = synthetic_data()
-#        gen = DataGenerator(data, labels, n_components=3)
-#        # Test generator
-#        new_data = gen.generate(1000, method='rejective')
- #       self.assertEqual(new_data.shape, (2000,50000))
-        
 
 if __name__ == '__main__':
-    
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestRVMethods)
-    unittest.TextTestRunner(verbosity=2).run(suite)
-    
+
+    unittest.main()

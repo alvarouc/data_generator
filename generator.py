@@ -5,14 +5,13 @@ from future.utils import implements_iterator
 from .rv_gen import mv_rejective
 from ica import ica1
 import numpy as np
-from scipy.stats import multivariate_normal as mn
 import rpy2
 import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr
 
 def empirical_mn(mean, covar, size):
     MASS = importr('MASS')
-    sample_mean = robjects.FloatVector(mean)
+    sample_mean = robjects.FloatVector(np.array(mean))
     temp = robjects.FloatVector(covar.ravel())
     sample_cov = robjects.r['matrix'](temp, nrow=covar.shape[0])
     new_mixing = np.array(MASS.mvrnorm(n=size, mu=sample_mean,
@@ -23,7 +22,7 @@ def empirical_mn(mean, covar, size):
 
 @implements_iterator
 class DataGeneratorByGroup(object):
-
+    
     def __init__(self, data, labels,
                  n_components=20,
                  n_samples=100,
@@ -31,18 +30,20 @@ class DataGeneratorByGroup(object):
                  method='normal'):
         self.method = method
         self.n_batches = n_batches
-        data =( data[labels==0,:], data[labels==1,:])
-        self.data_mean = (x.mean(axis=1).reshape((-1,1)) for x in data)
+        #self.data_mean = (x.mean(axis=1).reshape((-1,1)) for x in data)
         model = ica1(n_components)
-        (mix1, self.source1), (mix2, self.source2) =\
-            (model.fit(x) for x in data)
-
+        mixing, self.sources  = model.fit(data)
+        print(mixing.shape)
+        print(labels)
+        a0 = mixing[np.array(labels)==0, :]
+        print(a0)
+        a1 = mixing[np.array(labels)==1, :]
         self.parameters = {
-            'sample_mean':(x.mean(axis=0) for x in [mix1,mix2]),
-            'sample_cov':(np.cov(x, rowvar=0) for x in [mix1,mix2]),
-            'sample_hist':([np.histogram(column, density=True, bins=20)[0]
-                            for column in x.T] for x in [mix1, mix2]),
-            'n_samples':n_samples}
+            'sample_mean' : [ a0.mean(axis=0), a1.mean(axis=0)],
+            'sample_cov'  : [np.cov(x, rowvar=0) for x in [a0, a1]],
+            'sample_hist' : [[np.histogram(column, density=True, bins=20)
+                            for column in x.T] for x in [a0, a1]],
+            'n_samples' : n_samples}
         
     def __iter__(self):
         self.batch = 0
@@ -55,6 +56,7 @@ class DataGeneratorByGroup(object):
             raise StopIteration
         
         if self.method == 'normal':
+            print(self.parameters['sample_mean'][0])
             new_mixing0 = empirical_mn(self.parameters['sample_mean'][0],
                              self.parameters['sample_cov'][0],
                              self.parameters['n_samples'])
@@ -68,8 +70,8 @@ class DataGeneratorByGroup(object):
             new_mixing1 = mv_rejective(self.parameters['sample_hist'][1],
                                       self.parameters['n_samples'])
 
-        new_data0 = np.dot(new_mixing0, self.sources) + self.data_mean[0]
-        new_data1 = np.dot(new_mixing1, self.sources) + self.data_mean[1]
+        new_data0 = np.dot(new_mixing0, self.sources) #+ self.data_mean[0]
+        new_data1 = np.dot(new_mixing1, self.sources) #+ self.data_mean[1]
         return np.vstack((new_data0,new_data1))
     
 
@@ -103,6 +105,7 @@ class DataGenerator(object):
                            for column in mixing.T],
             'n_samples':n_samples,
         }
+        self.batch=0
 
 
     def __iter__(self):
