@@ -33,10 +33,7 @@ class DataGeneratorByGroup(object):
         #self.data_mean = (x.mean(axis=1).reshape((-1,1)) for x in data)
         model = ica1(n_components)
         mixing, self.sources  = model.fit(data)
-        print(mixing.shape)
-        print(labels)
         a0 = mixing[np.array(labels)==0, :]
-        print(a0)
         a1 = mixing[np.array(labels)==1, :]
         self.parameters = {
             'sample_mean' : [ a0.mean(axis=0), a1.mean(axis=0)],
@@ -44,6 +41,7 @@ class DataGeneratorByGroup(object):
             'sample_hist' : [[np.histogram(column, density=True, bins=20)
                             for column in x.T] for x in [a0, a1]],
             'n_samples' : n_samples}
+        self.batch = 0
         
     def __iter__(self):
         self.batch = 0
