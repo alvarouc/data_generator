@@ -1,13 +1,13 @@
 '''
 This module contains the data generator class
 '''
-from future.utils import implements_iterator
+# from future.utils import implements_iterator
 from .rv_gen import mv_rejective
 from ica import ica1
 import numpy as np
-import rpy2
 import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr
+
 
 def empirical_mn(mean, covar, size):
     MASS = importr('MASS')
@@ -20,66 +20,65 @@ def empirical_mn(mean, covar, size):
     return new_mixing
 
 
-@implements_iterator
+# @implements_iterator
 class DataGeneratorByGroup(object):
-    
+
     def __init__(self, data, labels,
                  n_components=20,
                  n_samples=100,
                  n_batches=1000,
                  method='normal'):
+        self.data_mean = data.mean(axis=0)
         self.method = method
         self.n_batches = n_batches
-        #self.data_mean = (x.mean(axis=1).reshape((-1,1)) for x in data)
         model = ica1(n_components)
-        mixing, self.sources  = model.fit(data)
-        a0 = mixing[np.array(labels)==0, :]
-        a1 = mixing[np.array(labels)==1, :]
+        mixing, self.sources = model.fit(data)
+        a0 = mixing[np.array(labels) == 0, :]
+        a1 = mixing[np.array(labels) == 1, :]
         self.parameters = {
-            'sample_mean' : [ a0.mean(axis=0), a1.mean(axis=0)],
-            'sample_cov'  : [np.cov(x, rowvar=0) for x in [a0, a1]],
-            'sample_hist' : [[np.histogram(column, density=True, bins=20)
+            'sample_mean': [a0.mean(axis=0), a1.mean(axis=0)],
+            'sample_cov': [np.cov(x, rowvar=0) for x in [a0, a1]],
+            'sample_hist': [[np.histogram(column, density=True, bins=20)
                             for column in x.T] for x in [a0, a1]],
-            'n_samples' : n_samples}
+            'n_samples': n_samples}
         self.batch = 0
-        
+
     def __iter__(self):
         self.batch = 0
         return self
 
     def __next__(self):
-
-        self.batch +=1
+        self.batch += 1
         if self.batch > self.n_batches:
             raise StopIteration
-        
+
         if self.method == 'normal':
-            print(self.parameters['sample_mean'][0])
+            #print(self.parameters['sample_mean'][0])
             new_mixing0 = empirical_mn(self.parameters['sample_mean'][0],
-                             self.parameters['sample_cov'][0],
-                             self.parameters['n_samples'])
+                                       self.parameters['sample_cov'][0],
+                                       self.parameters['n_samples'])
             new_mixing1 = empirical_mn(self.parameters['sample_mean'][1],
-                             self.parameters['sample_cov'][1],
-                             self.parameters['n_samples'])
+                                       self.parameters['sample_cov'][1],
+                                       self.parameters['n_samples'])
 
         if self.method == 'rejective':
             new_mixing0 = mv_rejective(self.parameters['sample_hist'][0],
-                                      self.parameters['n_samples'])
+                                       self.parameters['n_samples'])
             new_mixing1 = mv_rejective(self.parameters['sample_hist'][1],
-                                      self.parameters['n_samples'])
+                                       self.parameters['n_samples'])
 
-        new_data0 = np.dot(new_mixing0, self.sources) #+ self.data_mean[0]
-        new_data1 = np.dot(new_mixing1, self.sources) #+ self.data_mean[1]
-        return np.vstack((new_data0,new_data1))
-    
+        new_data0 = np.dot(new_mixing0, self.sources) + self.data_mean
+        new_data1 = np.dot(new_mixing1, self.sources) + self.data_mean
+        self.data_mean[1]
+        return np.vstack((new_data0, new_data1))
 
-    
-@implements_iterator
+
+# @implements_iterator
 class DataGenerator(object):
     '''
     Class that generates data using ICA and a RV generator method
     '''
-    def __init__(self, data, 
+    def __init__(self, data,
                  n_components=20,
                  n_samples=100,
                  n_batches=1000,
@@ -90,26 +89,24 @@ class DataGenerator(object):
         '''
         self.method = method
         self.n_batches = n_batches
-        #self.data_mean = data.mean(axis=1).reshape((-1,1))
-        
+
         # Running ICA
         model = ica1(n_components)
         mixing, self.sources = model.fit(data)
 
         self.parameters = {
-            'sample_mean':np.mean(mixing, axis=0),
-            'sample_cov':np.cov(mixing, rowvar=0),
-            'sample_hist':[np.histogram(column, density=True, bins=20)
-                           for column in mixing.T],
-            'n_samples':n_samples,
+            'sample_mean': np.mean(mixing, axis=0),
+            'sample_cov': np.cov(mixing, rowvar=0),
+            'sample_hist': [np.histogram(column, density=True, bins=20)
+                            for column in mixing.T],
+            'n_samples': n_samples,
         }
-        self.batch=0
-
+        self.batch = 0
 
     def __iter__(self):
-        self.batch=0
+        self.batch = 0
         return self
-        
+
     def __next__(self):
         self.batch += 1
         if self.batch > self.n_batches:
@@ -123,7 +120,5 @@ class DataGenerator(object):
             new_mixing = mv_rejective(self.parameters['sample_hist'],
                                       self.parameters['n_samples'])
 
-        new_data = np.dot(new_mixing, self.sources)# + self.data_mean
+        new_data = np.dot(new_mixing, self.sources)  # + self.data_mean
         return new_data
-
-    
