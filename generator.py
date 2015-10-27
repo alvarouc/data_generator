@@ -7,7 +7,7 @@ from ica import ica
 import numpy as np
 import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr
-from scipy.stats import ttest_ind
+#from scipy.stats import ttest_ind
 from sklearn.decomposition import PCA, SparsePCA
 
 
@@ -78,23 +78,25 @@ class DataGeneratorByGroup(object):
             raise StopIteration
 
         if self.method == 'normal':
-            new_mixing0 = empirical_mn(self.parameters['sample_mean'][0],
-                                       self.parameters['sample_cov'][0],
-                                       self.parameters['n_samples'])
-            new_mixing1 = empirical_mn(self.parameters['sample_mean'][1],
-                                       self.parameters['sample_cov'][1],
-                                       self.parameters['n_samples'])
+            new_mix0 = empirical_mn(
+                self.parameters['sample_mean'][0],
+                self.parameters['sample_cov'][0],
+                self.parameters['n_samples'])
+            new_mix1 = empirical_mn(
+                self.parameters['sample_mean'][1],
+                self.parameters['sample_cov'][1],
+                self.parameters['n_samples'])
 
         if self.method == 'rejective':
-            new_mixing0 = mv_rejective(self.parameters['sample_hist'][0],
-                                       self.parameters['n_samples'])
-            new_mixing1 = mv_rejective(self.parameters['sample_hist'][1],
-                                       self.parameters['n_samples'])
+            new_mix0 = mv_rejective(
+                self.parameters['sample_hist'][0],
+                self.parameters['n_samples'])
+            new_mix1 = mv_rejective(
+                self.parameters['sample_hist'][1],
+                self.parameters['n_samples'])
 
-        new_data0 = np.dot(new_mixing0, self.sources)
-        # + self.data_mean0
-        new_data1 = np.dot(new_mixing1, self.sources)
-        # + self.data_mean1
+        new_data0 = np.dot(new_mix0, self.sources)
+        new_data1 = np.dot(new_mix1, self.sources)
         return np.vstack((new_data0, new_data1))
 
 
