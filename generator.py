@@ -9,10 +9,17 @@ import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr
 #from scipy.stats import ttest_ind
 from sklearn.decomposition import PCA, SparsePCA
+from sklearn.preprocessing import LabelEncoder
+import logging
+
+logging.basicConfig(format="[%(module)s:%(levelname)s]:%(message)s")
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def empirical_mn(mean, covar, size):
     return np.random.multivariate_normal(mean, covar, size)
+
 
 def empirical_mnr(mean, covar, size):
     MASS = importr('MASS')
@@ -28,45 +35,64 @@ def empirical_mnr(mean, covar, size):
 # @implements_iterator
 class DataGeneratorByGroup(object):
 
-    def __init__(self, data, labels,
-                 n_components=20,
-                 n_samples=100,
-                 n_batches=1000,
-                 method='normal',
+    def __init__(self, X, y, n_components=20, n_samples=100,
+                 n_batches=1000, method='normal',
                  decomposition_method='ica'):
+
+        self.decomposition_method = decomposition_method
+        self.n_components = n_components
+        self.n_samples = n_samples
         self.method = method
         self.n_batches = n_batches
+
+        assert len(X) == len(y)
+
         if decomposition_method == 'ica':
             model = ica(n_components)
-            self.mixing, self.sources = model.fit(data)
-        if decomposition_method == 'pca':
+            self.mixing, self.sources = model.fit(X)
+        elif decomposition_method == 'pca':
             model = PCA(n_components)
-            self.mixing = model.fit_transform(data)
+            self.mixing = model.fit_transform(X)
             self.sources = model.components_
-        if decomposition_method == 'sparsePCA':
+        elif decomposition_method == 'sparsePCA':
             model = SparsePCA(n_components, alpha=0.01)
-            self.mixing = model.fit_transform(data)
+            self.mixing = model.fit_transform(X)
             self.sources = model.components_
+        else:
+            logger.info('Method: {}, not implemented'.format(
+                decomposition_method))
 
-        #result = ttest_ind(mixing[labels == 0, :],
-        #                   mixing[labels == 1, :])
-        #mixing = mixing[:, result.pvalue < 0.01]
-        #self.sources = self.sources[result.pvalue < 0.01, :]
+        # Encode labels
+        self.le = LabelEncoder()
+        self.le.fit(y)
+        logger.info('Classes: {}'.format(self.le.classes_))
+        self.y = self.le.transform(y)
+        self.n_classes = len(self.le.classes_)
 
-        a0 = self.mixing[np.array(labels) == 0, :]
-        a1 = self.mixing[np.array(labels) == 1, :]
-        self.parameters = {
-            'sample_mean': [a0.mean(axis=0), a1.mean(axis=0)],
-            'sample_cov': [np.cov(x, rowvar=0) for x in [a0, a1]],
-            'sample_hist': [[np.histogram(column, density=True, bins=20)
-                            for column in x.T] for x in [a0, a1]],
-            'n_samples': n_samples}
+        # partition mixing matrix by label
+        self.params = {'mean': [], 'cov': [], 'hist': []}
+        for label in range(self.n_classes):
+            keep = np.where(self.y == label)
+            mix = self.mixing[keep]
+            if method == 'normal':
+                self.params['mean'].append(mix.mean(axis=0))
+                self.params['cov'].append(np.cov(mix, rowvar=0))
+            elif method == 'rejective':
+                self.params['hist'].append(
+                    [np.histogram(column, density=True, bins=20)
+                     for column in mix.T])
+            else:
+                logger.info('Method {}, not implemented'.format(method))
         self.batch = 0
 
     @property
     def batch_label(self):
-        n = self.parameters['n_samples']
-        return(np.array([0]*n + [1]*n))
+
+        labels = []
+        for label in range(self.n_classes):
+            true_label = self.le.inverse_transform(label)
+            labels.extend([true_label] * self.n_samples)
+        return labels
 
     def __iter__(self):
         self.batch = 0
@@ -77,27 +103,22 @@ class DataGeneratorByGroup(object):
         if self.batch > self.n_batches:
             raise StopIteration
 
-        if self.method == 'normal':
-            new_mix0 = empirical_mn(
-                self.parameters['sample_mean'][0],
-                self.parameters['sample_cov'][0],
-                self.parameters['n_samples'])
-            new_mix1 = empirical_mn(
-                self.parameters['sample_mean'][1],
-                self.parameters['sample_cov'][1],
-                self.parameters['n_samples'])
+        new_data = []
+        labels = []
+        for label in range(self.n_classes):
+            if self.method == 'normal':
+                new_mix = empirical_mn(self.params['mean'][label],
+                                       self.params['cov'][label],
+                                       self.n_samples)
+            elif self.method == 'rejective':
+                new_mix = mv_rejective(self.params['hist'][label],
+                                       self.n_samples)
+            new_data.append(np.dot(new_mix, self.sources))
 
-        if self.method == 'rejective':
-            new_mix0 = mv_rejective(
-                self.parameters['sample_hist'][0],
-                self.parameters['n_samples'])
-            new_mix1 = mv_rejective(
-                self.parameters['sample_hist'][1],
-                self.parameters['n_samples'])
+            true_label = self.le.inverse_transform(label)
+            labels.extend([true_label] * self.n_samples)
 
-        new_data0 = np.dot(new_mix0, self.sources)
-        new_data1 = np.dot(new_mix1, self.sources)
-        return np.vstack((new_data0, new_data1))
+        return (np.vstack(new_data), labels)
 
 
 # @implements_iterator
