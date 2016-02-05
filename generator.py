@@ -105,18 +105,17 @@ class DataGeneratorByGroup(object):
 
         new_data = []
         labels = []
-        for label in range(self.n_classes):
+        for aclass in range(self.n_classes):
             if self.method == 'normal':
-                new_mix = empirical_mn(self.params['mean'][label],
-                                       self.params['cov'][label],
+                new_mix = empirical_mn(self.params['mean'][aclass],
+                                       self.params['cov'][aclass],
                                        self.n_samples)
             elif self.method == 'rejective':
-                new_mix = mv_rejective(self.params['hist'][label],
+                new_mix = mv_rejective(self.params['hist'][aclass],
                                        self.n_samples)
             new_data.append(np.dot(new_mix, self.sources))
 
-            true_label = self.le.inverse_transform(label)
-            labels.extend([true_label] * self.n_samples)
+            labels = self.batch_label
 
         return (np.vstack(new_data), labels)
 
