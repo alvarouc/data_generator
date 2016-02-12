@@ -5,8 +5,8 @@ This module contains the data generator class
 from .rv_gen import mv_rejective
 from ica import ica
 import numpy as np
-import rpy2.robjects as robjects
-from rpy2.robjects.packages import importr
+#import rpy2.robjects as robjects
+#from rpy2.robjects.packages import importr
 #from scipy.stats import ttest_ind
 from sklearn.decomposition import PCA, SparsePCA
 from sklearn.preprocessing import LabelEncoder
@@ -21,15 +21,15 @@ def empirical_mn(mean, covar, size):
     return np.random.multivariate_normal(mean, covar, size)
 
 
-def empirical_mnr(mean, covar, size):
-    MASS = importr('MASS')
-    sample_mean = robjects.FloatVector(np.array(mean))
-    temp = robjects.FloatVector(covar.ravel())
-    sample_cov = robjects.r['matrix'](temp, nrow=covar.shape[0])
-    new_mixing = np.array(MASS.mvrnorm(n=size, mu=sample_mean,
-                                       Sigma=sample_cov,
-                                       empirical=True))
-    return new_mixing
+#def empirical_mnr(mean, covar, size):
+#    MASS = importr('MASS')
+#    sample_mean = robjects.FloatVector(np.array(mean))
+#    temp = robjects.FloatVector(covar.ravel())
+#    sample_cov = robjects.r['matrix'](temp, nrow=covar.shape[0])
+#    new_mixing = np.array(MASS.mvrnorm(n=size, mu=sample_mean,
+#                                       Sigma=sample_cov,
+#                                       empirical=True))
+#    return new_mixing
 
 
 # @implements_iterator
